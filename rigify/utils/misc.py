@@ -11,6 +11,7 @@ from rna_prop_ui import rna_idprop_value_to_python
 
 
 T = typing.TypeVar('T')
+AnyVector = Vector | typing.Sequence[float]
 
 ##############################################
 # Math
@@ -71,7 +72,7 @@ matrix_from_axis_roll = bpy.types.Bone.MatrixFromAxisRoll
 axis_roll_from_matrix = bpy.types.Bone.AxisRollFromMatrix
 
 
-def matrix_from_axis_pair(y_axis: Vector, other_axis: Vector, axis_name: str):
+def matrix_from_axis_pair(y_axis: AnyVector, other_axis: AnyVector, axis_name: str):
     assert axis_name in 'xz'
 
     y_axis = Vector(y_axis).normalized()
@@ -176,7 +177,7 @@ def force_lazy(value: OptionalLazy[T]) -> T:
         return value
 
 
-class LazyRef:
+class LazyRef(typing.Generic[T]):
     """Hashable lazy reference. When called, evaluates (foo, 'a', 'b'...) as foo('a','b')
     if foo is callable. Otherwise, the remaining arguments are used as attribute names or
     keys, like foo.a.b or foo.a[b] etc."""
@@ -200,7 +201,7 @@ class LazyRef:
         return (hash(self.first) if self.first_hashable
                 else hash(id(self.first))) ^ hash(self.args)
 
-    def __call__(self):
+    def __call__(self) -> T:
         first = self.first
         if callable(first):
             return first(*self.args)
@@ -273,6 +274,49 @@ def select_object(context: bpy.types.Context, obj: bpy.types.Object, deselect_al
 
 
 ##############################################
+# Text
+##############################################
+
+def wrap_list_to_lines(prefix: str, delimiters: tuple[str, str] | str,
+                       items: typing.Iterable[str], *,
+                       limit=90, indent=4) -> list[str]:
+    """
+    Generate a string representation of a list of items, wrapping lines if necessary.
+
+    Args:
+        prefix:       Text of the first line before the list.
+        delimiters:   Start and end of list delimiters.
+        items:        List items, already converted to strings.
+        limit:        Maximum line length.
+        indent:       Wrapped line indent relative to prefix.
+    """
+    start, end = delimiters
+    items = list(items)
+    simple_line = prefix + start + ', '.join(items) + end
+
+    if not items or len(simple_line) <= limit:
+        return [simple_line]
+
+    prefix_indent = prefix[0: len(prefix) - len(prefix.lstrip())]
+    inner_indent = prefix_indent + ' ' * indent
+
+    result = []
+    line = prefix + start
+
+    for item in items:
+        item_repr = item + ','
+
+        if not result or len(line) + len(item_repr) + 1 > limit:
+            result.append(line)
+            line = inner_indent + item_repr
+        else:
+            line += ' ' + item_repr
+
+    result.append(line[:-1] + end)
+    return result
+
+
+##############################################
 # Typing
 ##############################################
 
@@ -282,16 +326,13 @@ class TypedObject(bpy.types.Object, typing.Generic[T]):
 
 ArmatureObject = TypedObject[bpy.types.Armature]
 MeshObject = TypedObject[bpy.types.Mesh]
-AnyVector = Vector | typing.Sequence[float]
 
 
 def verify_armature_obj(obj: bpy.types.Object) -> ArmatureObject:
     assert obj and obj.type == 'ARMATURE'
-    # noinspection PyTypeChecker
-    return obj
+    return obj  # noqa
 
 
 def verify_mesh_obj(obj: bpy.types.Object) -> MeshObject:
     assert obj and obj.type == 'MESH'
-    # noinspection PyTypeChecker
-    return obj
+    return obj  # noqa
