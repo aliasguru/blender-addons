@@ -3,7 +3,7 @@
 import bpy
 import re
 
-from typing import TYPE_CHECKING, Optional, Any, Sequence
+from typing import TYPE_CHECKING, Optional, Any, Sequence, Iterable
 
 from bpy.types import (bpy_prop_collection, Material, Object, PoseBone, Driver, FCurve,
                        DriverTarget, ID, bpy_struct, FModifierGenerator, Constraint, AnimData,
@@ -234,18 +234,21 @@ def _add_driver_variable(drv: Driver, var_name: str, var_info, target_id: Option
                 setattr(var, p, force_lazy(v))
 
 
-# noinspection PyIncorrectDocstring,PyShadowingBuiltins,PyDefaultArgument
+# noinspection PyShadowingBuiltins
 def make_driver(owner: bpy_struct, prop: str, *, index=-1, type='SUM',
                 expression: Optional[str] = None,
-                variables: list | dict = {},
+                variables: Iterable | dict = (),
                 polynomial: Optional[list[float]] = None,
                 target_id: Optional[ID] = None) -> FCurve:
     """
     Creates and initializes a driver for the 'prop' property of owner.
 
     Arguments:
+      owner           : object to add the driver to
+      prop            : property of the object to add the driver to
       index           : item index for vector properties
-      type, expression: mutually exclusive options to set core driver mode.
+      type            : built-in driver math operation (incompatible with expression)
+      expression      : custom driver expression
       variables       : either a list or dictionary of variable specifications.
       polynomial      : coefficients of the POLYNOMIAL driver modifier
       target_id       : specifies the target ID of variables implicitly
@@ -306,7 +309,7 @@ def make_driver(owner: bpy_struct, prop: str, *, index=-1, type='SUM',
         fcu.modifiers.remove(mod)
 
     # Fill in new data
-    if isinstance(variables, list):
+    if not isinstance(variables, dict):
         # variables = [ info, ... ]
         for i, var_info in enumerate(variables):
             var_name = 'var' if i == 0 else 'var' + str(i)
@@ -627,11 +630,11 @@ class MechanismUtilityMixin(object):
             **args
         )
 
-    # noinspection PyShadowingBuiltins,PyDefaultArgument
+    # noinspection PyShadowingBuiltins
     def make_driver(self, owner: str | bpy_struct, prop: str,
                     index=-1, type='SUM',
                     expression: Optional[str] = None,
-                    variables: list | dict = {},
+                    variables: Iterable | dict = (),
                     polynomial: Optional[list[float]] = None):
         assert(self.obj.mode == 'OBJECT')
         if isinstance(owner, str):

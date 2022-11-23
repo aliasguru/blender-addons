@@ -328,10 +328,9 @@ class ControlBoneParentOffset(ControlBoneParentLayer):
 
         self.limit_distance = other.limit_distance + self.limit_distance
 
-    # noinspection PyDefaultArgument
     def add_copy_local_location(self, target: Lazy[str], *, influence: Lazy[float] = 1,
                                 influence_expr: Optional[str] = None,
-                                influence_vars: dict[str, Any] = {}):
+                                influence_vars: Optional[dict[str, Any]] = None):
         """
         Add a Copy Location (Local, Owner Orientation) offset.
         The influence may be specified as a (lazy) constant, or a driver expression
@@ -342,7 +341,7 @@ class ControlBoneParentOffset(ControlBoneParentLayer):
 
         if influence_expr:
             self.copy_local[target].drivers.append(
-                self.DriverEntry(influence_expr, influence_vars))
+                self.DriverEntry(influence_expr, influence_vars or {}))
         elif callable(influence):
             self.copy_local[target].lazy_entries.append(influence)
         else:
@@ -391,8 +390,7 @@ class ControlBoneParentOffset(ControlBoneParentLayer):
         self.reuse_mch = False
 
         if self.copy_local or self.add_local or self.limit_distance:
-            # noinspection SpellCheckingInspection
-            mch_name = make_derived_name(self.node.name, 'mch', '_poffset')
+            mch_name = make_derived_name(self.node.name, 'mch', '_offset')
 
             if self.add_local:
                 # Generate a bone for every distinct orientation used for the drivers
