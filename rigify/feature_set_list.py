@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-from typing import TYPE_CHECKING, List, Sequence
+from typing import TYPE_CHECKING, List, Sequence, Optional
 
 import bpy
 from bpy.props import StringProperty
@@ -95,8 +95,8 @@ def get_info_dict(feature_set: str):
     return {}
 
 
-# noinspection PyDefaultArgument
-def call_function_safe(module_name: str, func_name: str, args=[], kwargs={}):
+def call_function_safe(module_name: str, func_name: str,
+                       args: Optional[list] = None, kwargs: Optional[dict] = None):
     module = get_module_safe(module_name)
 
     if module:
@@ -105,7 +105,7 @@ def call_function_safe(module_name: str, func_name: str, args=[], kwargs={}):
         if callable(func):
             # noinspection PyBroadException
             try:
-                return func(*args, **kwargs)
+                return func(*(args or []), **(kwargs or {}))
             except Exception:
                 print(f"Rigify Error: Could not call function '{func_name}' of feature set "
                       f"'{module_name}': exception occurred.\n")
@@ -258,7 +258,6 @@ class DATA_OT_rigify_remove_feature_set(bpy.types.Operator):
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event)
 
-    # noinspection GrazieInspection
     def execute(self, context):
         from . import RigifyPreferences
         addon_prefs = RigifyPreferences.get_instance()
@@ -266,7 +265,7 @@ class DATA_OT_rigify_remove_feature_set(bpy.types.Operator):
         active_idx = addon_prefs.active_feature_set_index
         active_fs: 'RigifyFeatureSets' = feature_set_list[active_idx]
 
-        # Call the unregister callback of the set being removed.
+        # Call the 'unregister' callback of the set being removed.
         if active_fs.enabled:
             call_register_function(active_fs.module_name, do_register=False)
 

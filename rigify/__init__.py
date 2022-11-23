@@ -152,10 +152,9 @@ class RigifyFeatureSets(bpy.types.PropertyGroup):
     )
 
 
-# noinspection PyPep8Naming, SpellCheckingInspection
+# noinspection PyPep8Naming
 class RIGIFY_UL_FeatureSets(bpy.types.UIList):
-    # noinspection PyMethodOverriding
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, _index=0, _flag=0):
         # rigify_prefs: RigifyPreferences = data
         # feature_sets = rigify_prefs.rigify_feature_sets
         # active_set: RigifyFeatureSets = feature_sets[rigify_prefs.active_feature_set_index]
@@ -410,12 +409,11 @@ def format_property_spec(spec):
 
 
 class RigifyParameterValidator(object):
-    # noinspection GrazieInspection
     """
     A wrapper around RigifyParameters that verifies properties
     defined from rigs for incompatible redefinitions using a table.
 
-    Relies on the implementation details of bpy.props return values:
+    Relies on the implementation details of bpy.props.* return values:
     specifically, they just return a tuple containing the real define
     function, and a dictionary with parameters. This allows comparing
     parameters before the property is actually defined.
@@ -465,7 +463,6 @@ class RigifyParameterValidator(object):
         self.__prop_table[name] = (self.__rig_name, new_def)
 
 
-# noinspection SpellCheckingInspection
 class RigifyArmatureLayer(bpy.types.PropertyGroup):
     def get_group(self):
         if 'group_prop' in self.keys():
@@ -484,6 +481,7 @@ class RigifyArmatureLayer(bpy.types.PropertyGroup):
     name: StringProperty(name="Layer Name", default=" ")
     row: IntProperty(name="Layer Row", default=1, min=1, max=32,
                      description='UI row for this layer')
+    # noinspection SpellCheckingInspection
     selset: BoolProperty(name="Selection Set", default=False,
                          description='Add Selection Set for this layer')
     group: IntProperty(name="Bone Group", default=0, min=0, max=32,
@@ -506,7 +504,6 @@ classes = (
 )
 
 
-# noinspection PyPep8Naming
 def register():
     from bpy.utils import register_class
 
@@ -561,16 +558,16 @@ def register():
         ('THEME20', 'THEME20', '')
         ), name='Theme')
 
-    IDStore = bpy.types.WindowManager
-    IDStore.rigify_collection = EnumProperty(
+    id_store = bpy.types.WindowManager
+    id_store.rigify_collection = EnumProperty(
         items=(("All", "All", "All"),), default="All",
         name="Rigify Active Collection",
         description="The selected rig collection")
 
-    IDStore.rigify_widgets = CollectionProperty(type=RigifyName)
-    IDStore.rigify_types = CollectionProperty(type=RigifyName)
-    IDStore.rigify_active_type = IntProperty(name="Rigify Active Type",
-                                             description="The selected rig type")
+    id_store.rigify_widgets = CollectionProperty(type=RigifyName)
+    id_store.rigify_types = CollectionProperty(type=RigifyName)
+    id_store.rigify_active_type = IntProperty(name="Rigify Active Type",
+                                              description="The selected rig type")
 
     bpy.types.Armature.rigify_force_widget_update = BoolProperty(
         name="Overwrite Widget Meshes",
@@ -618,7 +615,7 @@ def register():
         name="Finalize Script",
         description="Run this script after generation to apply user-specific changes")
 
-    IDStore.rigify_transfer_only_selected = BoolProperty(
+    id_store.rigify_transfer_only_selected = BoolProperty(
         name="Transfer Only Selected",
         description="Transfer selected bones only", default=True)
 
@@ -645,7 +642,6 @@ def register_rig_parameters():
             traceback.print_exc()
 
 
-# noinspection PyPep8Naming
 def unregister():
     from bpy.utils import unregister_class
 
@@ -653,30 +649,30 @@ def unregister():
     prefs.register_feature_sets(False)
 
     # Properties on PoseBones and Armature. (Annotated to suppress unknown attribute warnings.)
-    PoseBone: typing.Any = bpy.types.PoseBone
+    pose_bone: typing.Any = bpy.types.PoseBone
 
-    del PoseBone.rigify_type
-    del PoseBone.rigify_parameters
+    del pose_bone.rigify_type
+    del pose_bone.rigify_parameters
 
-    ArmStore: typing.Any = bpy.types.Armature
+    arm_store: typing.Any = bpy.types.Armature
 
-    del ArmStore.rigify_layers
-    del ArmStore.active_feature_set
-    del ArmStore.rigify_colors
-    del ArmStore.rigify_selection_colors
-    del ArmStore.rigify_colors_index
-    del ArmStore.rigify_colors_lock
-    del ArmStore.rigify_theme_to_add
-    del ArmStore.rigify_force_widget_update
-    del ArmStore.rigify_target_rig
-    del ArmStore.rigify_rig_ui
+    del arm_store.rigify_layers
+    del arm_store.active_feature_set
+    del arm_store.rigify_colors
+    del arm_store.rigify_selection_colors
+    del arm_store.rigify_colors_index
+    del arm_store.rigify_colors_lock
+    del arm_store.rigify_theme_to_add
+    del arm_store.rigify_force_widget_update
+    del arm_store.rigify_target_rig
+    del arm_store.rigify_rig_ui
 
-    IDStore: typing.Any = bpy.types.WindowManager
+    id_store: typing.Any = bpy.types.WindowManager
 
-    del IDStore.rigify_collection
-    del IDStore.rigify_types
-    del IDStore.rigify_active_type
-    del IDStore.rigify_transfer_only_selected
+    del id_store.rigify_collection
+    del id_store.rigify_types
+    del id_store.rigify_active_type
+    del id_store.rigify_transfer_only_selected
 
     # Classes.
     for cls in classes:
