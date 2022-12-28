@@ -9,6 +9,7 @@ else:
     from . import action_map, defaults, properties
 
 import bpy
+import gpu
 from bpy.types import (
     Gizmo,
     GizmoGroup,
