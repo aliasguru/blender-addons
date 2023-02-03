@@ -9,7 +9,7 @@ from ...io.com.gltf2_io_debug import print_console
 from io_scene_gltf2.blender.exp import gltf2_blender_gather_skins
 from io_scene_gltf2.io.com import gltf2_io_constants
 from io_scene_gltf2.blender.com import gltf2_blender_conversion
-from io_scene_gltf2.blender.com import gltf2_blender_default
+from io_scene_gltf2.io.exp.gltf2_io_user_extensions import export_user_extensions
 
 
 def extract_primitives(blender_mesh, uuid_for_skined_data, blender_vertex_groups, modifiers, export_settings):
@@ -136,12 +136,15 @@ class PrimitiveCreator:
                 self.export_settings['vtree'].nodes[armature_uuid].need_neutral_bone = True
 
     def define_attributes(self):
+
+
+        class KeepAttribute:
+            def __init__(self, attr_name):
+                self.attr_name = attr_name
+                self.keep = attr_name.startswith("_")
+
         # Manage attributes + COLOR_0
         for blender_attribute_index, blender_attribute in enumerate(self.blender_mesh.attributes):
-
-            # Excluse special attributes (used internally by Blender)
-            if blender_attribute.name in gltf2_blender_default.SPECIAL_ATTRIBUTES:
-                continue
 
             attr = {}
             attr['blender_attribute_index'] = blender_attribute_index
@@ -149,7 +152,7 @@ class PrimitiveCreator:
             attr['blender_domain'] = blender_attribute.domain
             attr['blender_data_type'] = blender_attribute.data_type
 
-            # For now, we don't export edge data, because I need to find how to 
+            # For now, we don't export edge data, because I need to find how to
             # get from edge data to dots data
             if attr['blender_domain'] == "EDGE":
                 continue
@@ -169,10 +172,21 @@ class PrimitiveCreator:
                 attr['get'] = self.get_function()
 
             else:
-                attr['gltf_attribute_name'] = '_' + blender_attribute.name.upper()
-                attr['get'] = self.get_function()
+                # Custom attributes
+                # Keep only attributes that starts with _
+                # As Blender create lots of attributes that are internal / not needed are as duplicated of standard glTF accessors (position, uv, material_index...)
                 if self.export_settings['gltf_attributes'] is False:
                     continue
+                # Check if there is an extension that want to keep this attribute, or change the exported name
+                keep_attribute = KeepAttribute(blender_attribute.name)
+
+                export_user_extensions('gather_attribute_keep', self.export_settings, keep_attribute)
+
+                if keep_attribute.keep is False:
+                    continue
+
+                attr['gltf_attribute_name'] = keep_attribute.attr_name.upper()
+                attr['get'] = self.get_function()
 
             self.blender_attributes.append(attr)
 
@@ -372,7 +386,7 @@ class PrimitiveCreator:
                     attr['set'](attr)
                 else: # Regular case
                     self.__set_regular_attribute(attr)
-                
+
             if self.skin:
                 joints = [[] for _ in range(self.num_joint_sets)]
                 weights = [[] for _ in range(self.num_joint_sets)]
@@ -544,7 +558,7 @@ class PrimitiveCreator:
                 self.__get_normal_attribute(attr)
             elif attr['gltf_attribute_name'] == "TANGENT":
                 self.__get_tangent_attribute(attr)
-            
+
         return getting_function
 
 
