@@ -1,24 +1,5 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# Script copyright (C) Bob Holcomb
-# Contributors: Bob Holcomb, Richard L?rk?ng, Damien McGinnes, Sebastian Sille
-# Campbell Barton, Mario Lapin, Dominique Lorre, Andreas Atteneder
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2005 Bob Holcomb
 
 import os
 import time
@@ -248,7 +229,10 @@ def add_texture_to_material(image, contextWrapper, pct, extend, alpha, scale, of
         mixer = nodes.new(type='ShaderNodeMixRGB')
         mixer.label = "Mixer"
         mixer.inputs[0].default_value = pct / 100
-        mixer.inputs[1].default_value = tintcolor[:3] + [1] if tintcolor else shader.inputs['Base Color'].default_value[:]
+        mixer.inputs[1].default_value = (
+            tintcolor[:3] + [1] if tintcolor else
+            shader.inputs['Base Color'].default_value[:]
+        )
         contextWrapper._grid_to_location(1, 2, dst_node=mixer, ref_node=shader)
         img_wrap = contextWrapper.base_color_texture
         links.new(img_wrap.node_image.outputs['Color'], mixer.inputs[2])
@@ -340,7 +324,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
     contextMesh_smooth = None
     contextMeshUV = None
 
-    #TEXTURE_DICT = {}
+    # TEXTURE_DICT = {}
     MATDICT = {}
 
     # Localspace variable names, faster.
@@ -565,6 +549,42 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
             add_texture_to_material(img, contextWrapper, pct, extend, alpha, (uscale, vscale, 1),
                                     (uoffset, voffset, 0), angle, tintcolor, mapto)
 
+    def read_track_data(temp_chunk):
+        temp_data = file.read(SZ_U_SHORT * 5)
+        temp_data = file.read(SZ_U_SHORT)
+        nkeys = struct.unpack('<H', temp_data)[0]
+        temp_data = file.read(SZ_U_SHORT)
+        new_chunk.bytes_read += SZ_U_SHORT * 2
+        for i in range(nkeys):
+            temp_data = file.read(SZ_U_SHORT)
+            nframe = struct.unpack('<H', temp_data)[0]
+            new_chunk.bytes_read += SZ_U_SHORT
+            temp_data = file.read(SZ_U_SHORT * 2)
+            new_chunk.bytes_read += SZ_U_SHORT * 2
+            temp_data = file.read(SZ_3FLOAT)
+            data = struct.unpack('<3f', temp_data)
+            new_chunk.bytes_read += SZ_3FLOAT
+            if nframe == 0:
+                return data
+
+    def read_track_angle(temp_chunk):
+        temp_data = file.read(SZ_U_SHORT * 5)
+        temp_data = file.read(SZ_U_SHORT)
+        nkeys = struct.unpack('<H', temp_data)[0]
+        temp_data = file.read(SZ_U_SHORT)
+        new_chunk.bytes_read += SZ_U_SHORT * 2
+        for i in range(nkeys):
+            temp_data = file.read(SZ_U_SHORT)
+            nframe = struct.unpack('<H', temp_data)[0]
+            new_chunk.bytes_read += SZ_U_SHORT
+            temp_data = file.read(SZ_U_SHORT * 2)
+            new_chunk.bytes_read += SZ_U_SHORT * 2
+            temp_data = file.read(SZ_FLOAT)
+            angle = struct.unpack('<f', temp_data)[0]
+            new_chunk.bytes_read += SZ_FLOAT
+            if nframe == 0:
+                return math.radians(angle)
+
     dirname = os.path.dirname(file.name)
 
     # loop through all the data for this chunk (previous chunk) and see what it is
@@ -583,16 +603,18 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
 
         # is it an ambient light chunk?
         elif new_chunk.ID == AMBIENTLIGHT:
-            world = bpy.data.worlds.new("Ambient")
-            world.use_nodes = False
-            context.scene.world = world
+            path, filename = os.path.split(file.name)
+            realname, ext = os.path.splitext(filename)
+            world = bpy.data.worlds.new("Ambient: " + realname)
             world.light_settings.use_ambient_occlusion = True
+            context.scene.world = world
             read_chunk(file, temp_chunk)
             if temp_chunk.ID == COLOR_F:
                 context.scene.world.color[:] = read_float_color(temp_chunk)
             elif temp_chunk.ID == LIN_COLOR_F:
                 context.scene.world.color[:] = read_float_color(temp_chunk)
-            else: skip_to_end(file, temp_chunk)     
+            else:
+                skip_to_end(file, temp_chunk)
             new_chunk.bytes_read += temp_chunk.bytes_read
 
         # is it an object info chunk?
@@ -948,15 +970,21 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
             hierarchy = struct.unpack('<H', temp_data)[0]
             new_chunk.bytes_read += 2
             child = object_dictionary.get(object_name)
+            colortrack = 'LIGHT'
+            if child is None:
+                if object_name == '$AMBIENT$':
+                    child = context.scene.world
+                    child.use_nodes = True
+                    colortrack = 'AMBIENT'
+                else:
+                    child = bpy.data.objects.new(object_name, None)  # Create an empty object
+                    context.view_layer.active_layer_collection.collection.objects.link(child)
+                    imported_objects.append(child)
 
-            if child is None and object_name != '$AMBIENT$':
-                child = bpy.data.objects.new(object_name, None)  # create an empty object
-                context.view_layer.active_layer_collection.collection.objects.link(child)
-                imported_objects.append(child)
-
-            object_list.append(child)
-            object_parent.append(hierarchy)
-            pivot_list.append(mathutils.Vector((0.0, 0.0, 0.0)))
+            if object_name != '$AMBIENT$':
+                object_list.append(child)
+                object_parent.append(hierarchy)
+                pivot_list.append(mathutils.Vector((0.0, 0.0, 0.0)))
 
         elif new_chunk.ID == OBJECT_INSTANCE_NAME:
             object_name, read_str_len = read_string(file)
@@ -973,24 +1001,13 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
             new_chunk.bytes_read += SZ_3FLOAT
             pivot_list[len(pivot_list) - 1] = mathutils.Vector(pivot)
 
+        elif KEYFRAME and new_chunk.ID == COL_TRACK_TAG and colortrack == 'AMBIENT':  # Ambient
+            new_chunk.bytes_read += SZ_U_SHORT * 5
+            child.node_tree.nodes['Background'].inputs[0].default_value[:3] = read_track_data(temp_chunk)
+
         elif KEYFRAME and new_chunk.ID == POS_TRACK_TAG:  # translation
             new_chunk.bytes_read += SZ_U_SHORT * 5
-            temp_data = file.read(SZ_U_SHORT * 5)
-            temp_data = file.read(SZ_U_SHORT)
-            nkeys = struct.unpack('<H', temp_data)[0]
-            temp_data = file.read(SZ_U_SHORT)
-            new_chunk.bytes_read += SZ_U_SHORT * 2
-            for i in range(nkeys):
-                temp_data = file.read(SZ_U_SHORT)
-                nframe = struct.unpack('<H', temp_data)[0]
-                new_chunk.bytes_read += SZ_U_SHORT
-                temp_data = file.read(SZ_U_SHORT * 2)
-                new_chunk.bytes_read += SZ_U_SHORT * 2
-                temp_data = file.read(SZ_3FLOAT)
-                loc = struct.unpack('<3f', temp_data)
-                new_chunk.bytes_read += SZ_3FLOAT
-                if nframe == 0:
-                    child.location = loc
+            child.location = read_track_data(temp_chunk)
 
         elif KEYFRAME and new_chunk.ID == ROT_TRACK_TAG and child.type == 'MESH':  # rotation
             new_chunk.bytes_read += SZ_U_SHORT * 5
@@ -1014,79 +1031,19 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
 
         elif KEYFRAME and new_chunk.ID == SCL_TRACK_TAG and child.type == 'MESH':  # scale
             new_chunk.bytes_read += SZ_U_SHORT * 5
-            temp_data = file.read(SZ_U_SHORT * 5)
-            temp_data = file.read(SZ_U_SHORT)
-            nkeys = struct.unpack('<H', temp_data)[0]
-            temp_data = file.read(SZ_U_SHORT)
-            new_chunk.bytes_read += SZ_U_SHORT * 2
-            for i in range(nkeys):
-                temp_data = file.read(SZ_U_SHORT)
-                nframe = struct.unpack('<H', temp_data)[0]
-                new_chunk.bytes_read += SZ_U_SHORT
-                temp_data = file.read(SZ_U_SHORT * 2)
-                new_chunk.bytes_read += SZ_U_SHORT * 2
-                temp_data = file.read(SZ_3FLOAT)
-                sca = struct.unpack('<3f', temp_data)
-                new_chunk.bytes_read += SZ_3FLOAT
-                if nframe == 0:
-                    child.scale = sca
+            child.scale = read_track_data(temp_chunk)
 
-        elif KEYFRAME and new_chunk.ID == COL_TRACK_TAG and child.type == 'LIGHT':  # color
+        elif KEYFRAME and new_chunk.ID == COL_TRACK_TAG and colortrack == 'LIGHT':  # color
             new_chunk.bytes_read += SZ_U_SHORT * 5
-            temp_data = file.read(SZ_U_SHORT * 5)
-            temp_data = file.read(SZ_U_SHORT)
-            nkeys = struct.unpack('<H', temp_data)[0]
-            temp_data = file.read(SZ_U_SHORT)
-            new_chunk.bytes_read += SZ_U_SHORT * 2
-            for i in range(nkeys):
-                temp_data = file.read(SZ_U_SHORT)
-                nframe = struct.unpack('<H', temp_data)[0]
-                new_chunk.bytes_read += SZ_U_SHORT
-                temp_data = file.read(SZ_U_SHORT * 2)
-                new_chunk.bytes_read += SZ_U_SHORT * 2
-                temp_data = file.read(SZ_3FLOAT)
-                rgb = struct.unpack('<3f', temp_data)
-                new_chunk.bytes_read += SZ_3FLOAT
-                if nframe == 0:
-                    child.data.color = rgb
+            child.data.color = read_track_data(temp_chunk)
 
-        elif new_chunk.ID == FOV_TRACK_TAG and child.type == 'CAMERA':  # Field of view
+        elif KEYFRAME and new_chunk.ID == FOV_TRACK_TAG and child.type == 'CAMERA':  # Field of view
             new_chunk.bytes_read += SZ_U_SHORT * 5
-            temp_data = file.read(SZ_U_SHORT * 5)
-            temp_data = file.read(SZ_U_SHORT)
-            nkeys = struct.unpack('<H', temp_data)[0]
-            temp_data = file.read(SZ_U_SHORT)
-            new_chunk.bytes_read += SZ_U_SHORT * 2
-            for i in range(nkeys):
-                temp_data = file.read(SZ_U_SHORT)
-                nframe = struct.unpack('<H', temp_data)[0]
-                new_chunk.bytes_read += SZ_U_SHORT
-                temp_data = file.read(SZ_U_SHORT * 2)
-                new_chunk.bytes_read += SZ_U_SHORT * 2
-                temp_data = file.read(SZ_FLOAT)
-                fov = struct.unpack('<f', temp_data)[0]
-                new_chunk.bytes_read += SZ_FLOAT
-                if nframe == 0:
-                    child.data.angle = math.radians(fov)
+            child.data.angle = read_track_angle(temp_chunk)
 
-        elif new_chunk.ID == ROLL_TRACK_TAG and child.type == 'CAMERA':  # Roll angle
+        elif KEYFRAME and new_chunk.ID == ROLL_TRACK_TAG and child.type == 'CAMERA':  # Roll angle
             new_chunk.bytes_read += SZ_U_SHORT * 5
-            temp_data = file.read(SZ_U_SHORT * 5)
-            temp_data = file.read(SZ_U_SHORT)
-            nkeys = struct.unpack('<H', temp_data)[0]
-            temp_data = file.read(SZ_U_SHORT)
-            new_chunk.bytes_read += SZ_U_SHORT * 2
-            for i in range(nkeys):
-                temp_data = file.read(SZ_U_SHORT)
-                nframe = struct.unpack('<H', temp_data)[0]
-                new_chunk.bytes_read += SZ_U_SHORT
-                temp_data = file.read(SZ_U_SHORT * 2)
-                new_chunk.bytes_read += SZ_U_SHORT * 2
-                temp_data = file.read(SZ_FLOAT)
-                roll = struct.unpack('<f', temp_data)[0]
-                new_chunk.bytes_read += SZ_FLOAT
-                if nframe == 0:
-                    child.rotation_euler[1] = math.radians(roll)
+            child.rotation_euler[1] = read_track_angle(temp_chunk)
 
         else:
             buffer_size = new_chunk.length - new_chunk.bytes_read
@@ -1103,7 +1060,14 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
         if CreateLightObject or CreateCameraObject:
             pass
         else:
-            putContextMesh(context, contextMesh_vertls, contextMesh_facels, contextMesh_flag, contextMeshMaterials, contextMesh_smooth)
+            putContextMesh(
+                context,
+                contextMesh_vertls,
+                contextMesh_facels,
+                contextMesh_flag,
+                contextMeshMaterials,
+                contextMesh_smooth,
+            )
 
     # Assign parents to objects
     # check _if_ we need to assign first because doing so recalcs the depsgraph
@@ -1126,7 +1090,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
             pivot = pivot_list[ind]
             pivot_matrix = object_matrix.get(ob, mathutils.Matrix())  # unlikely to fail
             pivot_matrix = mathutils.Matrix.Translation(-1 * pivot)
-            #pivot_matrix = mathutils.Matrix.Translation(pivot_matrix.to_3x3() @ -pivot)
+            # pivot_matrix = mathutils.Matrix.Translation(pivot_matrix.to_3x3() @ -pivot)
             ob.data.transform(pivot_matrix)
 
 
