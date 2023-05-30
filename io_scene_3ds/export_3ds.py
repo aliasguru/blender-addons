@@ -550,10 +550,8 @@ def make_texture_chunk(chunk_id, images):
 
 
 def make_material_texture_chunk(chunk_id, texslots, pct):
-    """Make Material Map texture chunk given a seq. of `MaterialTextureSlot`'s
-    Paint slots are optionally used as image source if no nodes are
-    used. No additional filtering for mapping modes is done, all
-    slots are written "as is"."""
+    """Make Material Map texture chunk given a seq. of MaterialTextureSlot's
+    Paint slots are optionally used as image source if no nodes are used."""
 
     # Add texture percentage value
     mat_sub = make_percent_subchunk(chunk_id, pct)
@@ -575,7 +573,7 @@ def make_material_texture_chunk(chunk_id, texslots, pct):
         0x40 activates alpha source, 0x80 activates tinting, 0x100 ignores alpha, 0x200 activates RGB tint.
         Bits 0x80, 0x100, and 0x200 are only used with TEXMAP, TEX2MAP, and SPECMAP chunks.
         0x40, when used with a TEXMAP, TEX2MAP, or SPECMAP chunk must be accompanied with a tint bit,
-        either 0x100 or 0x200, tintcolor will be processed if a tintflag is present"""
+        either 0x100 or 0x200, tintcolor will be processed if a tintflag was created."""
 
         mapflags = 0
         if texslot.extension == 'EXTEND':
@@ -588,7 +586,7 @@ def make_material_texture_chunk(chunk_id, texslots, pct):
         if socket == 'Alpha':
             mapflags |= 0x40
             if texslot.socket_dst.identifier in {'Base Color', 'Specular'}: 
-                mapflags |= 0x80 if image.colorspace_settings.name=='Non-Color' else 0x200
+                mapflags |= 0x80 if image.colorspace_settings.name == 'Non-Color' else 0x200
 
         mat_sub_mapflags.add_variable("mapflags", _3ds_ushort(mapflags))
         mat_sub.add_subchunk(mat_sub_mapflags)
@@ -806,7 +804,7 @@ def extract_triangles(mesh):
 
         """Flag 0x1 sets CA edge visible, Flag 0x2 sets BC edge visible, Flag 0x4 sets AB edge visible
         Flag 0x8 indicates a U axis texture wrap seam and Flag 0x10 indicates a V axis texture wrap seam
-        In Blender we use the edge CA, BC, and AB flags for sharp edges flags"""
+        In Blender we use the edge CA, BC, and AB flags for sharp edges flags."""
         a_b = mesh.edges[mesh.loops[face.loops[0]].edge_index]
         b_c = mesh.edges[mesh.loops[face.loops[1]].edge_index]
         c_a = mesh.edges[mesh.loops[face.loops[2]].edge_index]
@@ -1019,7 +1017,7 @@ def make_mesh_chunk(ob, mesh, matrix, materialDict, translation):
     matrix_chunk = _3ds_chunk(OBJECT_TRANS_MATRIX)
     obj_matrix = matrix.transposed().to_3x3()
 
-    if ob.parent is None or ob.parent.name not in translation:
+    if ob.parent is None or (ob.parent.name not in translation):
         obj_translate = matrix.to_translation()
 
     else:  # Calculate child matrix translation relative to parent
@@ -1048,7 +1046,7 @@ def make_mesh_chunk(ob, mesh, matrix, materialDict, translation):
 #################
 
 def make_kfdata(revision, start=0, stop=100, curtime=0):
-    """Make the basic keyframe data chunk"""
+    """Make the basic keyframe data chunk."""
     kfdata = _3ds_chunk(KFDATA)
 
     kfhdr = _3ds_chunk(KFDATA_KFHDR)
@@ -1069,8 +1067,8 @@ def make_kfdata(revision, start=0, stop=100, curtime=0):
     return kfdata
 
 def make_track_chunk(ID, ob, ob_pos, ob_rot, ob_size):
-    """Make a chunk for track data. Depending on the ID, this will
-       construct a position, rotation, scale, roll, color or fov track."""
+    """Make a chunk for track data. Depending on the ID, this will construct
+    a position, rotation, scale, roll, color, fov, hotspot or falloff track."""
     track_chunk = _3ds_chunk(ID)
 
     if ID in {POS_TRACK_TAG, ROT_TRACK_TAG, SCL_TRACK_TAG, ROLL_TRACK_TAG} and ob.animation_data and ob.animation_data.action:
@@ -1218,7 +1216,7 @@ def make_track_chunk(ID, ob, ob_pos, ob_rot, ob_size):
     return track_chunk
 
 
-def make_object_node(ob, translation, rotation, scale):
+def make_object_node(ob, translation, rotation, scale, name_id):
     """Make a node chunk for a Blender object. Takes Blender object as parameter.
        Blender Empty objects are converted to dummy nodes."""
 
@@ -1231,6 +1229,11 @@ def make_object_node(ob, translation, rotation, scale):
             obj_node = _3ds_chunk(SPOT_NODE_TAG)
     else:  # Main object node chunk
         obj_node = _3ds_chunk(OBJECT_NODE_TAG)
+
+    # Chunk for the object ID from name_id dictionary:
+    obj_id_chunk = _3ds_chunk(OBJECT_NODE_ID)
+    obj_id_chunk.add_variable("node_id", _3ds_ushort(name_id[name]))
+    obj_node.add_subchunk(obj_id_chunk)
 
     # Object node header with object name
     obj_node_header_chunk = _3ds_chunk(OBJECT_NODE_HDR)
@@ -1246,8 +1249,8 @@ def make_object_node(ob, translation, rotation, scale):
         obj_node_header_chunk.add_variable("name", _3ds_string(sane_name(name)))
         obj_node_header_chunk.add_variable("flags1", _3ds_ushort(0x0040))
 
-        # Flags2 defines bit 0x01 for display path, bit 0x02 use autosmooth, bit 0x04 object frozen,
-        # bit 0x10 for motion blur, bit 0x20 for material morph and bit 0x40 for mesh morph
+        """Flags2 defines 0x01 for display path, 0x02 use autosmooth, 0x04 object frozen,
+        0x10 for motion blur, 0x20 for material morph and bit 0x40 for mesh morph."""
         if ob.type == 'MESH' and ob.data.use_auto_smooth:
             obj_node_header_chunk.add_variable("flags2", _3ds_ushort(0x02))
         else:
@@ -1257,18 +1260,18 @@ def make_object_node(ob, translation, rotation, scale):
     '''
     # COMMENTED OUT FOR 2.42 RELEASE!! CRASHES 3DS MAX
     # Check parent-child relationships:
-    if parent is None or parent.name not in name_to_id:
+    if parent is None or parent.name not in name_id:
         # If no parent, or parents name is not in dictionary, ID becomes -1:
         obj_node_header_chunk.add_variable("parent", _3ds_ushort(-1))
-    else:  # Get the parent's ID from the name_to_id dictionary:
-        obj_node_header_chunk.add_variable("parent", _3ds_ushort(name_to_id[parent.name]))
+    else:  # Get the parent's ID from the name_id dictionary:
+        obj_node_header_chunk.add_variable("parent", _3ds_ushort(name_id[parent.name]))
     '''
 
     # Add subchunk for node header
     obj_node.add_subchunk(obj_node_header_chunk)
 
     # Alternatively use PARENT_NAME chunk for hierachy
-    if parent is not None:
+    if parent is not None and (parent.name in name_id):
         obj_parent_name_chunk = _3ds_chunk(OBJECT_PARENT_NAME)
         obj_parent_name_chunk.add_variable("parent", _3ds_string(sane_name(parent.name)))
         obj_node.add_subchunk(obj_parent_name_chunk)
@@ -1298,7 +1301,7 @@ def make_object_node(ob, translation, rotation, scale):
             obj_node.add_subchunk(obj_morph_smooth)
 
     # Add track chunks for color, position, rotation and scale
-    if parent is None:
+    if parent is None or (parent.name not in name_id):
         ob_pos = translation[name]
         ob_rot = rotation[name]
         ob_size = scale[name]
@@ -1326,14 +1329,20 @@ def make_object_node(ob, translation, rotation, scale):
     return obj_node
 
 
-def make_target_node(ob, translation, rotation, scale):
-    """Make a target chunk for light and camera objects"""
+def make_target_node(ob, translation, rotation, scale, name_id):
+    """Make a target chunk for light and camera objects."""
 
     name = ob.name
-    if ob.type == 'CAMERA':  #Add camera target
+    name_id["ø " + name] = len(name_id)
+    if ob.type == 'CAMERA':  # Add camera target
         tar_node = _3ds_chunk(TARGET_NODE_TAG)
     elif ob.type == 'LIGHT':  # Add spot target
         tar_node = _3ds_chunk(LTARGET_NODE_TAG)
+
+    # Chunk for the object ID from name_id dictionary:
+    tar_id_chunk = _3ds_chunk(OBJECT_NODE_ID)
+    tar_id_chunk.add_variable("node_id", _3ds_ushort(name_id[name]))
+    tar_node.add_subchunk(tar_id_chunk)
 
     # Object node header with object name
     tar_node_header_chunk = _3ds_chunk(OBJECT_NODE_HDR)
@@ -1407,9 +1416,16 @@ def make_target_node(ob, translation, rotation, scale):
 
 
 def make_ambient_node(world):
+    """Make an ambient node for the world color, if the color is animated."""
+
     amb_color = world.color
     amb_node = _3ds_chunk(AMBIENT_NODE_TAG)
     track_chunk = _3ds_chunk(COL_TRACK_TAG)
+
+    # Chunk for the ambient ID is ROOT_OBJECT
+    amb_id_chunk = _3ds_chunk(OBJECT_NODE_ID)
+    amb_id_chunk.add_variable("node_id", _3ds_ushort(ROOT_OBJECT))
+    amb_node.add_subchunk(amb_id_chunk)
 
     # Object node header, name is "$AMBIENT$" for ambient nodes
     amb_node_header_chunk = _3ds_chunk(OBJECT_NODE_HDR)
@@ -1461,12 +1477,7 @@ def make_ambient_node(world):
 # EXPORT #
 ##########
 
-def save(operator,
-         context, filepath="",
-         use_selection=False,
-         write_keyframe=False,
-         global_matrix=None,
-         ):
+def save(operator, context, filepath="", use_selection=False, write_keyframe=False, global_matrix=None):
 
     """Save the Blender scene to a 3ds file."""
     # Time the export
@@ -1499,7 +1510,7 @@ def save(operator,
 
     # Add MASTERSCALE element
     mscale = _3ds_chunk(MASTERSCALE)
-    mscale.add_variable("scale", _3ds_float(1))
+    mscale.add_variable("scale", _3ds_float(1.0))
     object_info.add_subchunk(mscale)
 
     # Init main keyframe data chunk
@@ -1514,7 +1525,7 @@ def save(operator,
     if world is not None:
         ambient_chunk = _3ds_chunk(AMBIENTLIGHT)
         ambient_light = _3ds_chunk(RGB)
-        ambient_light.add_variable("ambient", _3ds_float_color(scene.world.color))
+        ambient_light.add_variable("ambient", _3ds_float_color(world.color))
         ambient_chunk.add_subchunk(ambient_light)
         object_info.add_subchunk(ambient_chunk)
         if write_keyframe and world.animation_data:
@@ -1597,19 +1608,19 @@ def save(operator,
     scale = {}
 
     # Give all objects a unique ID and build a dictionary from object name to object id
-    # name_to_id = {}
+    name_id = {}
 
     for ob, data, matrix in mesh_objects:
         translation[ob.name] = ob.location
         rotation[ob.name] = ob.rotation_euler.to_quaternion().inverted()
         scale[ob.name] = ob.scale
-        # name_to_id[ob.name]= len(name_to_id)
+        name_id[ob.name] = len(name_id)
 
     for ob in empty_objects:
         translation[ob.name] = ob.location
         rotation[ob.name] = ob.rotation_euler.to_quaternion().inverted()
         scale[ob.name] = ob.scale
-        # name_to_id[ob.name]= len(name_to_id)
+        name_id[ob.name] = len(name_id)
 
     # Create object chunks for all meshes
     i = 0
@@ -1631,23 +1642,18 @@ def save(operator,
 
         # Export kf object node
         if write_keyframe:
-            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale))
+            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale, name_id))
 
         i += i
 
     # Create chunks for all empties, only requires a kf object node
     if write_keyframe:
         for ob in empty_objects:
-            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale))
+            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale, name_id))
 
     # Create light object chunks
     for ob in light_objects:
         object_chunk = _3ds_chunk(OBJECT)
-        translation[ob.name] = ob.location
-        rotation[ob.name] = ob.rotation_euler.to_quaternion()
-        scale[ob.name] = ob.scale
-
-        # Add light data subchunks
         light_chunk = _3ds_chunk(OBJECT_LIGHT)
         color_float_chunk = _3ds_chunk(RGB)
         energy_factor = _3ds_chunk(LIGHT_MULTIPLIER)
@@ -1686,18 +1692,17 @@ def save(operator,
 
         # Export light and spotlight target node
         if write_keyframe:
-            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale))
+            translation[ob.name] = ob.location
+            rotation[ob.name] = ob.rotation_euler.to_quaternion()
+            scale[ob.name] = ob.scale
+            name_id[ob.name] = len(name_id)
+            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale, name_id))
             if ob.data.type == 'SPOT':
-                kfdata.add_subchunk(make_target_node(ob, translation, rotation, scale))
+                kfdata.add_subchunk(make_target_node(ob, translation, rotation, scale, name_id))
 
     # Create camera object chunks
     for ob in camera_objects:
         object_chunk = _3ds_chunk(OBJECT)
-        translation[ob.name] = ob.location
-        rotation[ob.name] = ob.rotation_euler.to_quaternion()
-        scale[ob.name] = ob.scale
-
-        # Add camera data subchunks
         camera_chunk = _3ds_chunk(OBJECT_CAMERA)
         diagonal = math.copysign(math.sqrt(pow(ob.location[0], 2) + pow(ob.location[1], 2)), ob.location[1])
         focus_x = ob.location[0] + (ob.location[1] * math.tan(ob.rotation_euler[2]))
@@ -1713,8 +1718,12 @@ def save(operator,
 
         # Export camera and target node
         if write_keyframe:
-            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale))
-            kfdata.add_subchunk(make_target_node(ob, translation, rotation, scale))
+            translation[ob.name] = ob.location
+            rotation[ob.name] = ob.rotation_euler.to_quaternion()
+            scale[ob.name] = ob.scale
+            name_id[ob.name] = len(name_id)
+            kfdata.add_subchunk(make_object_node(ob, translation, rotation, scale, name_id))
+            kfdata.add_subchunk(make_target_node(ob, translation, rotation, scale, name_id))
 
     # Add main object info chunk to primary chunk
     primary.add_subchunk(object_info)
