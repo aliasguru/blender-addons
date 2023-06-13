@@ -1,4 +1,4 @@
-actionconfig_version = (3, 5, 0)
+actionconfig_version = (4, 0, 6)
 actionconfig_data = \
 [("blender_default",
   {"items":
@@ -636,7 +636,10 @@ actionconfig_data = \
     ("teleport",
      {"type": 'FLOAT', "user_paths": ['/user/hand/left'], "op": 'wm.xr_navigation_teleport', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'},
      {"op_properties":
-      [("interpolation", 0.9),
+      [("teleport_axes", (True, True, False)),
+       ("interpolation", 0.9),
+       ("offset", 0.0),
+       ("selectable_only", False),
        ("color", (0.0, 1.0, 1.0, 1.0)),
        ],
       },     
@@ -753,8 +756,9 @@ actionconfig_data = \
      {"type": 'FLOAT', "user_paths": ['/user/hand/right'], "op": 'wm.xr_navigation_fly', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'},
      {"op_properties":
       [("mode", 'UP'),
-       ("speed_min", 0.014),
-       ("speed_max", 0.042),
+       ("lock_direction", True),
+       ("speed_min", 0.001),
+       ("speed_max", 0.02),
        ],
       },     
      {"bindings":
@@ -773,8 +777,9 @@ actionconfig_data = \
      {"type": 'FLOAT', "user_paths": ['/user/hand/right'], "op": 'wm.xr_navigation_fly', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'},
      {"op_properties":
       [("mode", 'DOWN'),
-       ("speed_min", 0.014),
-       ("speed_max", 0.042),
+       ("lock_direction", True),
+       ("speed_min", 0.001),
+       ("speed_max", 0.02),
        ],
       },     
      {"bindings":
@@ -794,7 +799,7 @@ actionconfig_data = \
      {"op_properties":
       [("mode", 'TURNLEFT'),
        ("speed_min", 0.01),
-       ("speed_max", 0.03),
+       ("speed_max", 0.015),
        ],
       },     
      {"bindings":
@@ -814,7 +819,7 @@ actionconfig_data = \
      {"op_properties":
       [("mode", 'TURNRIGHT'),
        ("speed_min", 0.01),
-       ("speed_max", 0.03),
+       ("speed_max", 0.015),
        ],
       },     
      {"bindings":
@@ -832,8 +837,8 @@ actionconfig_data = \
     ("nav_reset",
      {"type": 'FLOAT', "user_paths": ['/user/hand/left', '/user/hand/right'], "op": 'wm.xr_navigation_reset', "op_mode": 'PRESS', "bimanual": 'False', "haptic_name": 'haptic', "haptic_match_user_paths": 'True', "haptic_duration": '0.30000001192092896', "haptic_frequency": '3000.0', "haptic_amplitude": '0.5', "haptic_mode": 'PRESS'},
      {"op_properties":
-      [("location", False),
-       ("rotation", False),
+      [("location", True),
+       ("rotation", True),
        ("scale", True),
        ],
       },     
@@ -849,7 +854,15 @@ actionconfig_data = \
        ],
       },
      ),
-    ("select", {"type": 'FLOAT', "user_paths": ['/user/hand/right'], "op": 'wm.xr_select_raycast', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'}, None,
+    ("change_height",
+     {"type": 'FLOAT', "user_paths": ['/user/hand/right'], "op": 'wm.xr_navigation_teleport', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'},
+     {"op_properties":
+      [("teleport_axes", (False, False, True)),
+       ("offset", 1.5),
+       ("selectable_only", False),
+       ("color", (1.0, 0.26476210355758667, 0.03157292678952217, 1.0)),
+       ],
+      },     
      {"bindings":
       [("huawei", {"profile": '/interaction_profiles/huawei/controller', "component_paths": ['/input/trigger/value'], "threshold": '0.30000001192092896', "axis_region": 'ANY'}),
        ("index", {"profile": '/interaction_profiles/valve/index_controller', "component_paths": ['/input/trigger/value'], "threshold": '0.30000001192092896', "axis_region": 'ANY'}),
@@ -863,7 +876,12 @@ actionconfig_data = \
        ],
       },
      ),
-    ("transform", {"type": 'FLOAT', "user_paths": ['/user/hand/left', '/user/hand/right'], "op": 'wm.xr_transform_grab', "op_mode": 'MODAL', "bimanual": 'True', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'}, None,
+    ("annotation_draw",
+     {"type": 'FLOAT', "user_paths": ['/user/hand/left', '/user/hand/right'], "op": 'gpencil.annotate', "op_mode": 'MODAL', "bimanual": 'False', "haptic_name": '', "haptic_match_user_paths": 'False', "haptic_duration": '0.0', "haptic_frequency": '0.0', "haptic_amplitude": '0.0', "haptic_mode": 'PRESS'},
+     {"op_properties":
+      [("use_stabilizer", True),
+       ],
+      },     
      {"bindings":
       [("huawei", {"profile": '/interaction_profiles/huawei/controller', "component_paths": ['/input/back/click', '/input/back/click'], "threshold": '0.30000001192092896', "axis_region": 'ANY'}),
        ("index", {"profile": '/interaction_profiles/valve/index_controller', "component_paths": ['/input/a/click', '/input/a/click'], "threshold": '0.30000001192092896', "axis_region": 'ANY'}),
