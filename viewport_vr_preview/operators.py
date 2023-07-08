@@ -1,5 +1,3 @@
-# SPDX-FileCopyrightText: 2021-2023 Blender Foundation
-#
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 if "bpy" in locals():
@@ -11,14 +9,13 @@ else:
     from . import action_map, defaults, properties
 
 import bpy
-import gpu
-from bpy.app.translations import pgettext_data as data_
 from bpy.types import (
     Gizmo,
     GizmoGroup,
     Operator,
 )
 from bpy_extras.io_utils import ExportHelper, ImportHelper
+import gpu
 import math
 from math import radians
 from mathutils import Euler, Matrix, Quaternion, Vector
@@ -124,8 +121,8 @@ class VIEW3D_OT_vr_camera_landmark_from_session(Operator):
         loc = wm.xr_session_state.viewer_pose_location
         rot = wm.xr_session_state.viewer_pose_rotation.to_euler()
 
-        cam = bpy.data.cameras.new(data_("Camera") + "_" + lm.name)
-        new_cam = bpy.data.objects.new(data_("Camera") + "_" + lm.name, cam)
+        cam = bpy.data.cameras.new("Camera_" + lm.name)
+        new_cam = bpy.data.objects.new("Camera_" + lm.name, cam)
         scene.collection.objects.link(new_cam)
         new_cam.location = loc
         new_cam.rotation_euler = rot
@@ -222,8 +219,8 @@ class VIEW3D_OT_add_camera_from_vr_landmark(Operator):
         scene = context.scene
         lm = properties.VRLandmark.get_selected_landmark(context)
 
-        cam = bpy.data.cameras.new(data_("Camera") + "_" + lm.name)
-        new_cam = bpy.data.objects.new(data_("Camera") + "_" + lm.name, cam)
+        cam = bpy.data.cameras.new("Camera_" + lm.name)
+        new_cam = bpy.data.objects.new("Camera_" + lm.name, cam)
         scene.collection.objects.link(new_cam)
         angle = lm.base_pose_angle
         new_cam.location = lm.base_pose_location
@@ -947,6 +944,7 @@ class VIEW3D_GT_vr_camera_cone(Gizmo):
                 (aspect[0], -aspect[1], -1.0),
                 (aspect[0], aspect[1], -1.0),
                 (-aspect[0], aspect[1], -1.0),
+                (-aspect[0], -aspect[1], -1.0),
             )
             lines_shape_verts = (
                 (0.0, 0.0, 0.0),
@@ -957,10 +955,12 @@ class VIEW3D_GT_vr_camera_cone(Gizmo):
                 frame_shape_verts[2],
                 (0.0, 0.0, 0.0),
                 frame_shape_verts[3],
+                (0.0, 0.0, 0.0),
+                frame_shape_verts[4],
             )
 
             self.frame_shape = self.new_custom_shape(
-                'LINE_LOOP', frame_shape_verts)
+                'LINE_STRIP', frame_shape_verts)
             self.lines_shape = self.new_custom_shape(
                 'LINES', lines_shape_verts)
 
