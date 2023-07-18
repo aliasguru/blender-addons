@@ -6,7 +6,6 @@ bl_info = {
     'name': 'glTF 2.0 format',
     'author': 'Julien Duroure, Scurest, Norbert Nopper, Urs Hanselmann, Moritz Becher, Benjamin Schmithüsen, Jim Eckerlein, and many external contributors',
     "version": (4, 0, 5),
-    "version": (3, 6, 27),
     'blender': (3, 5, 0),
     'location': 'File > Import-Export',
     'description': 'Import-Export as glTF 2.0',
@@ -467,7 +466,7 @@ class ExportGLTF2_Base(ConvertGLTF2_Base):
     export_optimize_animation_keep_anim_armature: BoolProperty(
         name='Force keeping channels for bones',
         description=(
-            "if all keyframes are identical in a rig, "
+            "If all keyframes are identical in a rig, "
             "force keeping the minimal animation. "
             "When off, all possible channels for "
             "the bones will be exported, even if empty "
