@@ -18,7 +18,7 @@ import bpy
 bl_info = {
     "name": "Autodesk 3DS format",
     "author": "Bob Holcomb, Campbell Barton, Andreas Atteneder, Sebastian Schrand",
-    "version": (2, 4, 4),
+    "version": (2, 4, 6),
     "blender": (3, 6, 0),
     "location": "File > Import-Export",
     "description": "3DS Import/Export meshes, UVs, materials, textures, "
@@ -55,9 +55,9 @@ class Import3DS(bpy.types.Operator, ImportHelper):
         soft_min=0.0, soft_max=1000.0,
         default=10.0,
     )
-    convert_measure: BoolProperty(
-        name="Convert Measure",
-        description="Convert from millimeters to meters",
+    convert_unit: BoolProperty(
+        name="Convert Units",
+        description="Converts to scene unit length settings",
         default=False,
     )
     use_image_search: BoolProperty(
@@ -149,7 +149,7 @@ class MAX3DS_PT_import_transform(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "constrain_size")
-        layout.prop(operator, "convert_measure")
+        layout.prop(operator, "convert_unit")
         layout.prop(operator, "use_apply_transform")
         layout.prop(operator, "use_world_matrix")
         layout.prop(operator, "axis_forward")
@@ -170,16 +170,32 @@ class Export3DS(bpy.types.Operator, ExportHelper):
     )
 
     scale_factor: FloatProperty(
-        name="Scale",
-        description="Scale factor for all objects",
+        name="Scale Factor",
+        description="Master scale factor for all objects",
         min=0.0, max=100000.0,
         soft_min=0.0, soft_max=100000.0,
         default=1.0,
+    )
+    apply_unit: BoolProperty(
+        name="Scene Units",
+        description="Take the scene unit length settings into account",
+        default=False,
     )
     use_selection: BoolProperty(
         name="Selection Only",
         description="Export selected objects only",
         default=False,
+    )
+    object_filter: bpy.props.EnumProperty(
+        name="Object Filter", options={'ENUM_FLAG'},
+        items=(('WORLD', "World".rjust(11), "", 'WORLD_DATA',0x1),
+               ('MESH', "Mesh".rjust(11), "", 'MESH_DATA', 0x2),
+               ('LIGHT', "Light".rjust(12), "", 'LIGHT_DATA',0x4),
+               ('CAMERA', "Camera".rjust(11), "", 'CAMERA_DATA',0x8),
+               ('EMPTY', "Empty".rjust(11), "", 'EMPTY_DATA',0x10),
+               ),
+        description="Object types to export",
+        default={'WORLD', 'MESH', 'LIGHT', 'CAMERA', 'EMPTY'},
     )
     use_hierarchy: BoolProperty(
         name="Export Hierarchy",
@@ -187,7 +203,7 @@ class Export3DS(bpy.types.Operator, ExportHelper):
         default=False,
     )
     write_keyframe: BoolProperty(
-        name="Write Keyframe",
+        name="Export Keyframes",
         description="Write the keyframe data",
         default=False,
     )
@@ -233,6 +249,7 @@ class MAX3DS_PT_export_include(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "use_selection")
+        layout.column().prop(operator, "object_filter")
         layout.prop(operator, "use_hierarchy")
         layout.prop(operator, "write_keyframe")
 
@@ -259,6 +276,7 @@ class MAX3DS_PT_export_transform(bpy.types.Panel):
         operator = sfile.active_operator
 
         layout.prop(operator, "scale_factor")
+        layout.prop(operator, "apply_unit")
         layout.prop(operator, "axis_forward")
         layout.prop(operator, "axis_up")
 
