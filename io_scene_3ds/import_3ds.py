@@ -257,12 +257,15 @@ def add_texture_to_material(image, contextWrapper, pct, extend, alpha, scale, of
         mixer.inputs[0].default_value = pct / 100
         mixer.inputs[1].default_value = (
             tint1[:3] + [1] if tint1 else shader.inputs['Base Color'].default_value[:])
-        if tint2 is not None:
-            mixer.inputs[2].default_value = tint2[:3] + [1]
         contextWrapper._grid_to_location(1, 2, dst_node=mixer, ref_node=shader)
         img_wrap = contextWrapper.base_color_texture
-        links.new(img_wrap.node_image.outputs['Color'], mixer.inputs[2])
         links.new(mixer.outputs['Color'], shader.inputs['Base Color'])
+        if tint2 is not None:
+            img_wrap.colorspace_name = 'Non-Color'
+            mixer.inputs[2].default_value = tint2[:3] + [1]
+            links.new(img_wrap.node_image.outputs['Color'], mixer.inputs[0])
+        else:
+            links.new(img_wrap.node_image.outputs['Color'], mixer.inputs[2])
     elif mapto == 'ROUGHNESS':
         img_wrap = contextWrapper.roughness_texture
     elif mapto == 'METALLIC':
@@ -542,6 +545,9 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
                 texture_name, read_str_len = read_string(file)
                 img = load_image(texture_name, dirname, place_holder=False, recursive=IMAGE_SEARCH, check_existing=True)
                 temp_chunk.bytes_read += read_str_len  # plus one for the null character that gets removed
+
+            elif temp_chunk.ID == MAT_BUMP_PERCENT:
+                contextWrapper.normalmap_strength = (float(read_short(temp_chunk) / 100))
 
             elif temp_chunk.ID == MAT_MAP_TILING:
                 """Control bit flags, where 0x1 activates decaling, 0x2 activates mirror,
