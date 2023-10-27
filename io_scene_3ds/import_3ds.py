@@ -274,6 +274,10 @@ def add_texture_to_material(image, contextWrapper, pct, extend, alpha, scale, of
     elif mapto == 'SPECULARITY':
         shader.location = (300,0)
         img_wrap = contextWrapper.specular_tint_texture
+        if tint1:
+            img_wrap.node_dst.inputs['Coat Tint'].default_value = tint1[:3] + [1]
+        if tint2:
+            img_wrap.node_dst.inputs['Sheen Tint'].default_value = tint2[:3] + [1]
     elif mapto == 'ALPHA':
         shader.location = (-300,0)
         img_wrap = contextWrapper.alpha_texture
@@ -324,8 +328,11 @@ def add_texture_to_material(image, contextWrapper, pct, extend, alpha, scale, of
                 own_map = img_wrap.node_mapping
                 if tex == image.name:
                     links.new(link.from_node.outputs['Alpha'], img_wrap.socket_dst)
-                    nodes.remove(own_map)
-                    nodes.remove(own_node)
+                    try:
+                        nodes.remove(own_map)
+                        nodes.remove(own_node)
+                    except:
+                        pass
                     for imgs in bpy.data.images:
                         if imgs.name[-3:].isdigit():
                             if not imgs.users:
@@ -354,6 +361,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
     contextColor = None
     contextWrapper = None
     contextMatrix = None
+    contextTransmission = None
     contextMesh_vertls = None
     contextMesh_facels = None
     contextMesh_flag = None
@@ -530,6 +538,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         contextWrapper.base_color = contextColor[:]
         contextWrapper.metallic = contextMaterial.metallic
         contextWrapper.roughness = contextMaterial.roughness
+        contextWrapper.transmission = contextTransmission
         contextWrapper.specular = contextMaterial.specular_intensity
         contextWrapper.specular_tint = contextMaterial.specular_color[:]
         contextWrapper.emission_color = contextMaterial.line_color[:3]
@@ -898,6 +907,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         # If material chunk
         elif new_chunk.ID == MATERIAL:
             contextAlpha = True
+            contextTransmission = False
             contextColor = mathutils.Color((0.8, 0.8, 0.8))
             contextMaterial = bpy.data.materials.new('Material')
             contextWrapper = PrincipledBSDFWrapper(contextMaterial, is_readonly=False, use_nodes=False)
@@ -986,6 +996,14 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
                 contextMaterial.blend_method = 'BLEND'
             new_chunk.bytes_read += temp_chunk.bytes_read
 
+        elif new_chunk.ID == MAT_XPFALL:
+            read_chunk(file, temp_chunk)
+            if temp_chunk.ID == PCTI:
+                contextTransmission = float(read_short(temp_chunk) / 100)
+            else:
+                skip_to_end(file, temp_chunk)
+            new_chunk.bytes_read += temp_chunk.bytes_read
+
         elif new_chunk.ID == MAT_SELF_ILPCT:
             read_chunk(file, temp_chunk)
             if temp_chunk.ID == PCT_SHORT:
@@ -1003,6 +1021,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
                 contextWrapper.base_color = contextColor[:]
                 contextWrapper.metallic = contextMaterial.metallic
                 contextWrapper.roughness = contextMaterial.roughness
+                contextWrapper.transmission = contextTransmission
                 contextWrapper.specular = contextMaterial.specular_intensity
                 contextWrapper.specular_tint = contextMaterial.specular_color[:]
                 contextWrapper.emission_color = contextMaterial.line_color[:3]
@@ -1331,7 +1350,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         elif new_chunk.ID == MORPH_SMOOTH and tracking == 'OBJECT':  # Smooth angle
             smooth_angle = read_float(new_chunk)
             if child.data is not None:  # Check if child is a dummy
-                child.data.set_sharp_from_angle(smooth_angle)
+                child.data.set_sharp_from_angle(angle=smooth_angle)
 
         elif KEYFRAME and new_chunk.ID == COL_TRACK_TAG and tracking == 'AMBIENT':  # Ambient
             keyframe_data = {}
