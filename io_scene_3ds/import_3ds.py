@@ -361,6 +361,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
     contextColor = None
     contextWrapper = None
     contextMatrix = None
+    contextReflection = None
     contextTransmission = None
     contextMesh_vertls = None
     contextMesh_facels = None
@@ -544,6 +545,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         contextWrapper.emission_color = contextMaterial.line_color[:3]
         contextWrapper.emission_strength = contextMaterial.line_priority / 100
         contextWrapper.alpha = contextMaterial.diffuse_color[3] = contextAlpha
+        contextWrapper.node_principled_bsdf.inputs['Coat Weight'].default_value = contextReflection
 
         while (new_chunk.bytes_read < new_chunk.length):
             read_chunk(file, temp_chunk)
@@ -643,7 +645,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         hyp = math.sqrt(pow(plane.x,2) + pow(plane.y,2))
         dia = math.sqrt(pow(hyp,2) + pow(plane.z,2))
         yaw = math.atan2(math.copysign(hyp, sign_xy), axis_xy)
-        bow = math.acos(hyp / dia)
+        bow = math.acos(hyp / dia) if dia != 0 else 0
         turn = angle - yaw if check_sign else angle + yaw
         tilt = angle - bow if loca.z > target.z else angle + bow
         pan = yaw if check_axes else turn
@@ -907,6 +909,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
         # If material chunk
         elif new_chunk.ID == MATERIAL:
             contextAlpha = True
+            contextReflection = False
             contextTransmission = False
             contextColor = mathutils.Color((0.8, 0.8, 0.8))
             contextMaterial = bpy.data.materials.new('Material')
@@ -998,8 +1001,18 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
 
         elif new_chunk.ID == MAT_XPFALL:
             read_chunk(file, temp_chunk)
-            if temp_chunk.ID == PCTI:
-                contextTransmission = float(read_short(temp_chunk) / 100)
+            if temp_chunk.ID == PCT_SHORT:
+                contextTransmission = float(abs(read_short(temp_chunk) / 100))
+            else:
+                skip_to_end(file, temp_chunk)
+            new_chunk.bytes_read += temp_chunk.bytes_read
+
+        elif new_chunk.ID == MAT_REFBLUR:
+            read_chunk(file, temp_chunk)
+            if temp_chunk.ID == PCT_SHORT:
+                contextReflection = float(read_short(temp_chunk) / 100)
+            elif temp_chunk.ID == PCT_FLOAT:
+                contextReflection = float(read_float(temp_chunk))
             else:
                 skip_to_end(file, temp_chunk)
             new_chunk.bytes_read += temp_chunk.bytes_read
@@ -1027,6 +1040,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, CONSTRAI
                 contextWrapper.emission_color = contextMaterial.line_color[:3]
                 contextWrapper.emission_strength = contextMaterial.line_priority / 100
                 contextWrapper.alpha = contextMaterial.diffuse_color[3] = contextAlpha
+                contextWrapper.node_principled_bsdf.inputs['Coat Weight'].default_value = contextReflection
                 contextWrapper.use_nodes = False
                 if shading >= 3:
                     contextWrapper.use_nodes = True

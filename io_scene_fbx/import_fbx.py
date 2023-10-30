@@ -1363,14 +1363,13 @@ def blen_read_geom_array_foreach_set_allsame(blen_data, blen_attr, blen_dtype, f
 
 def blen_read_geom_array_foreach_set_looptovert(mesh, blen_data, blen_attr, blen_dtype, fbx_data, stride, item_size,
                                                 descr, xform):
-    """Generic fbx_layer to blen_data foreach setter for polyloop ByVertice layers.
+    """Generic fbx_layer to blen_data foreach setter for face corner ByVertice layers.
     blen_data must be a bpy_prop_collection or 2d np.ndarray whose second axis length is item_size.
     fbx_data must be an array.array"""
-    # The fbx_data is mapped to vertices. To expand fbx_data to polygon loops, get an array of the vertex index of each
-    # polygon loop that will then be used to index fbx_data
-    loop_vertex_indices = np.empty(len(mesh.loops), dtype=np.uintc)
-    mesh.loops.foreach_get("vertex_index", loop_vertex_indices)
-    blen_read_geom_array_foreach_set_indexed(blen_data, blen_attr, blen_dtype, fbx_data, loop_vertex_indices, stride,
+    # The fbx_data is mapped to vertices. To expand fbx_data to face corners, get an array of the vertex index of each
+    # face corner that will then be used to index fbx_data.
+    corner_vertex_indices = MESH_ATTRIBUTE_CORNER_VERT.to_ndarray(mesh.attributes)
+    blen_read_geom_array_foreach_set_indexed(blen_data, blen_attr, blen_dtype, fbx_data, corner_vertex_indices, stride,
                                              item_size, descr, xform)
 
 
@@ -1747,11 +1746,13 @@ def blen_read_geom_layer_normal(fbx_obj, mesh, xform=None):
                 poly_loop_totals = np.empty(len(mesh.polygons), dtype=np.uintc)
                 mesh.polygons.foreach_get("loop_total", poly_loop_totals)
                 loop_normals = np.repeat(bdata, poly_loop_totals, axis=0)
-                mesh.attributes["temp_custom_normals"].data.foreach_set("normal", loop_normals.ravel())
+                mesh.attributes["temp_custom_normals"].data.foreach_set("vector", loop_normals.ravel())
             elif blen_data_type == "Vertices":
+                # Note: Currently unreachable because `blen_read_geom_array_mapped_polyloop` covers all the supported
+                # import cases covered by `blen_read_geom_array_mapped_vert`.
                 # We have to copy vnors to lnors! Far from elegant, but simple.
                 loop_vertex_indices = MESH_ATTRIBUTE_CORNER_VERT.to_ndarray(mesh.attributes)
-                mesh.attributes["temp_custom_normals"].data.foreach_set("normal", bdata[loop_vertex_indices].ravel())
+                mesh.attributes["temp_custom_normals"].data.foreach_set("vector", bdata[loop_vertex_indices].ravel())
             return True
 
     blen_read_geom_array_error_mapping("normal", fbx_layer_mapping)

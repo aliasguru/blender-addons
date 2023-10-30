@@ -710,6 +710,7 @@ def make_material_chunk(material, image):
         material_chunk.add_subchunk(make_percent_subchunk(MATTRANS, 1 - wrap.alpha))
         material_chunk.add_subchunk(make_percent_subchunk(MATXPFALL, wrap.transmission))
         material_chunk.add_subchunk(make_percent_subchunk(MATSELFILPCT, wrap.emission_strength))
+        material_chunk.add_subchunk(make_percent_subchunk(MATREFBLUR, wrap.node_principled_bsdf.inputs['Coat Weight'].default_value))
         material_chunk.add_subchunk(shading)
 
         primary_tex = False
@@ -1303,10 +1304,11 @@ def make_object_node(ob, translation, rotation, scale, name_id):
     else:  # Add flag variables - Based on observation flags1 is usually 0x0040 and 0x4000 for empty objects
         obj_node_header_chunk.add_variable("name", _3ds_string(sane_name(name)))
         obj_node_header_chunk.add_variable("flags1", _3ds_ushort(0x0040))
-
-        """Flags2 defines 0x01 for display path, 0x04 object frozen,
-        0x10 for motion blur, 0x20 for material morph and bit 0x40 for mesh morph."""
-        obj_node_header_chunk.add_variable("flags2", _3ds_ushort(0))
+        # Flag 0x01 display path 0x02 use autosmooth 0x04 object frozen 0x10 motion blur 0x20 material morph 0x40 mesh morph
+        if ob.type == 'MESH' and 'Smooth by Angle' in ob.modifiers:
+            obj_node_header_chunk.add_variable("flags2", _3ds_ushort(0x02))
+        else:
+            obj_node_header_chunk.add_variable("flags2", _3ds_ushort(0))
     obj_node_header_chunk.add_variable("parent", _3ds_ushort(ROOT_OBJECT))
 
     '''
@@ -1345,6 +1347,12 @@ def make_object_node(ob, translation, rotation, scale, name_id):
         obj_boundbox.add_variable("min", _3ds_point_3d(ob.bound_box[0]))
         obj_boundbox.add_variable("max", _3ds_point_3d(ob.bound_box[6]))
         obj_node.add_subchunk(obj_boundbox)
+
+        # Add smooth angle if smooth modifier is used
+        if ob.type == 'MESH' and 'Smooth by Angle' in ob.modifiers:
+            obj_morph_smooth = _3ds_chunk(OBJECT_MORPH_SMOOTH)
+            obj_morph_smooth.add_variable("angle", _3ds_float(round(ob.modifiers['Smooth by Angle']['Input_1'], 6)))
+            obj_node.add_subchunk(obj_morph_smooth)
 
     # Add track chunks for position, rotation, size
     ob_scale = scale[name]  # and collect masterscale
