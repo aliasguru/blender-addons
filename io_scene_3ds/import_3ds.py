@@ -1598,16 +1598,6 @@ def process_next_chunk(context, file, previous_chunk, imported_objects,
                 ob.parent = object_dict.get(parent)
             except:  # object is None or self to parent exception
                 object_list.pop(ind)
-        if APPLY_MATRIX:
-            cld = ob
-            mat = mathutils.Matrix()
-            while cld.parent:
-                trans = matrix_transform.get(cld.parent.name)
-                if trans is not None:
-                    mat = trans @ mat
-                cld = cld.parent
-            if ob.type == 'MESH' and ob.data and ob.parent:
-                ob.data.transform(mat)
     
         #pivot_list[ind] += pivot_list[parent]  # Not sure this is correct, should parent space matrix be applied before combining?
 
@@ -1619,7 +1609,6 @@ def process_next_chunk(context, file, previous_chunk, imported_objects,
             if parent is not None:
                 ob.parent = parent
     parent_dictionary.clear()
-    matrix_transform.clear()
 
     # If hierarchy
     hierarchy = dict(zip(childs_list, parent_list))
@@ -1640,6 +1629,16 @@ def process_next_chunk(context, file, previous_chunk, imported_objects,
             pivot_matrix = mathutils.Matrix.Translation(-1 * pivot)
             # pivot_matrix = mathutils.Matrix.Translation(pivot_matrix.to_3x3() @ -pivot)
             ob.data.transform(pivot_matrix)
+        if APPLY_MATRIX:
+            cld = ob
+            mat = mathutils.Matrix()
+            while cld.parent:
+                trans = matrix_transform.get(cld.parent.name)
+                if trans is not None:
+                    mat = trans @ mat
+                cld = cld.parent
+            if ob.type == 'MESH' and ob.data and ob.parent:
+                ob.data.transform(mat)
 
 
 ##########
@@ -1703,6 +1702,7 @@ def load_3ds(filepath, context, CONSTRAIN=10.0, UNITS=False, IMAGE_SEARCH=True,
                        IMAGE_SEARCH, WORLD_MATRIX, KEYFRAME, APPLY_MATRIX, CONVERSE, MEASURE, CURSOR)
 
     # fixme, make unglobal
+    matrix_transform.clear()
     object_dictionary.clear()
     object_matrix.clear()
 
@@ -1736,6 +1736,10 @@ def load_3ds(filepath, context, CONSTRAIN=10.0, UNITS=False, IMAGE_SEARCH=True,
         if ob.type == 'MESH':
             if PIVOT:
                 bpy.ops.object.origin_set(type='GEOMETRY_ORIGIN')
+            if not APPLY_MATRIX:  # Reset transform
+                bpy.ops.object.rotation_clear()
+                bpy.ops.object.location_clear()
+                bpy.ops.object.scale_clear()
 
     """
     if IMPORT_AS_INSTANCE:
